@@ -1,37 +1,24 @@
-% Common formatting fixes for academic papers.
-% Include this file in your preamble or apply these settings as needed.
+% Opt-in examples only. Do not import this file as a generic preamble.
+% Check the venue template and existing packages before enabling a snippet.
 
-% --- Widow and Orphan Control ---
-\widowpenalty=10000
-\clubpenalty=10000
+% Widow/orphan control, if compatible with the class:
+% \widowpenalty=10000
+% \clubpenalty=10000
 
-% --- Better text rendering ---
-\usepackage{microtype}
+% Text rendering, if the venue permits microtype:
+% \usepackage{microtype}
 
-% --- Float placement ---
-% Force floats to appear in the section where they are defined
-\usepackage[section]{placeins}
+% Tables with readable, wrapping columns:
+% \usepackage{booktabs}
+% \usepackage{tabularx}
 
-% --- Better table formatting ---
-\usepackage{booktabs}
-\usepackage{tabularx}
+% Vector figures at a width that keeps their labels legible:
+% \usepackage{graphicx}
+% \includegraphics[width=\columnwidth]{figures/name.pdf}
 
-% --- Useful for resizing overfull tables ---
-% Usage: \resizebox{\columnwidth}{!}{\begin{tabular}...\end{tabular}}
-\usepackage{graphicx}
+% URL line breaking, when the template does not already configure it:
+% \usepackage{url}
+% \urlstyle{same}
 
-% --- Subfigures ---
-\usepackage{subcaption}
-
-% --- Compact lists (reduce vertical spacing in itemize/enumerate) ---
-\usepackage{enumitem}
-\setlist{nosep}
-
-% --- URL line breaking ---
-\usepackage{url}
-\urlstyle{same}
-
-% --- Reduce spacing around section titles (if needed) ---
-% \usepackage{titlesec}
-% \titlespacing*{\section}{0pt}{1.5ex plus 0.5ex minus 0.2ex}{1ex plus 0.2ex}
-% \titlespacing*{\subsection}{0pt}{1.25ex plus 0.5ex minus 0.2ex}{0.75ex plus 0.2ex}
+% Do not override required margins, fonts, line/section/caption spacing,
+% or page dimensions to fit the page limit. Escalate for content cuts.

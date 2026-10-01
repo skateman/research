@@ -1,10 +1,6 @@
 ---
-name: SVG Renderer
-description: Convert SVG figures to PNG previews (fast visual feedback loop) and PDF files (LaTeX-ready inclusion).
-tools:
-  - shell
-  - read
-  - vision
+name: svg-renderer
+description: Convert an existing SVG to a PNG preview or vector PDF using Docker. Use for figure inspection and LaTeX inclusion, including custom output names, DPI, and preview widths.
 ---
 
 # SVG Renderer Skill
@@ -15,6 +11,10 @@ You convert SVG vector graphics to raster previews (PNG) and print-ready formats
 
 - Docker must be installed and running on the host machine
 - The `research-latex` Docker image must be built (it includes `rsvg-convert`)
+
+The helper builds the image if missing and reports an unavailable Docker daemon
+explicitly. Run commands from the repository root; input/output paths below are
+relative to that root. The bundled helper is [render-svg.sh](scripts/render-svg.sh).
 
 ## Outputs
 
@@ -69,8 +69,12 @@ To produce both PNG preview and PDF for LaTeX in one step:
 By default, output goes alongside the input file. Override with `--output`:
 
 ```bash
-.github/skills/svg-renderer/scripts/render-svg.sh figures/arch.svg --format png --output output/preview.png
+.github/skills/svg-renderer/scripts/render-svg.sh papers/<name>/figures/arch.svg --format png --output papers/<name>/output/preview.png
 ```
+
+Missing output directories are created. With `--format both`, `--output` sets the
+shared output stem: `--output papers/<name>/figures/custom` writes `custom.png`
+and `custom.pdf` (an optional `.png` or `.pdf` suffix is stripped first).
 
 ### 5. Custom Dimensions
 
@@ -91,6 +95,8 @@ The recommended workflow:
 
 ## Error Handling
 
-- **Missing `rsvg-convert`** — rebuild the Docker image; `librsvg` must be installed
+- **Missing `rsvg-convert`** — rebuild the Docker image; its `rsvg-convert` package must be installed
 - **Malformed SVG** — check for unclosed tags, invalid attributes, or encoding issues
 - **Blank output** — verify the SVG has visible content (not just a `<defs>` block) and uses explicit dimensions or a `viewBox` attribute
+- **Invalid size** — DPI and width must be positive integers; single-format output filenames must have the corresponding `.png` or `.pdf` extension
+- **No image-viewing tool** — report that the conversion ran but visual quality was not inspected; do not invent a vision tool or claim a visual check

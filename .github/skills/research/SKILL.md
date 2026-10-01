@@ -1,9 +1,6 @@
 ---
-name: Research
-description: Quick literature lookups, reference landscape analysis, and thematic organization for other agents.
-tools:
-  - read
-  - search
+name: research
+description: Inspect an existing bibliography, organize references by theme, or perform a small literature lookup. Use for bounded reference-coverage questions; use the researcher agent for a full survey and gap-analysis for novelty checks.
 ---
 
 # Research Skill
@@ -29,4 +26,15 @@ You assist with quick literature lookups and reference analysis when invoked by 
 
 ## Usage
 
-Use this skill in conjunction with the **referencer** skill (which has search access) for quick reference checks. For gap identification, use the **gap-analysis** skill. For comprehensive research, invoke the **@researcher** agent directly.
+Use this skill with **referencer** for quick reference checks. Skills inherit the
+current agent's available tools; they do not gain search access from frontmatter.
+Discover the available scholarly search tools before using them, and state any
+access limitations.
+
+Separate metadata-based categorization from findings confirmed by reading an
+abstract or full text. Include stable source links and the reading depth for
+substantive claims; a title alone is not evidence of what a study found.
+
+Return a concise answer by default. Create research files only when the caller
+requests a saved artifact. For gap identification use **gap-analysis**; for a
+comprehensive survey select the **Researcher** agent.

@@ -1,184 +1,129 @@
 ---
-name: Statistician
-description: Design, execute, and report statistical hypothesis tests. Chooses appropriate tests, checks assumptions, runs analysis via Python (scipy/statsmodels), and produces LaTeX-ready results.
-tools:
-  - shell
-  - read
-  - edit
+name: statistician
+description: Design or audit statistical analyses, check assumptions, compute tests and uncertainty from supplied data, and report reproducible results. Use for hypothesis tests, effect sizes, confidence intervals, or prospective power analysis.
 ---
 
-# Statistician Skill
+# Statistician
 
-You perform statistical hypothesis testing for academic papers. Given data and research questions, you select the appropriate tests, verify assumptions, execute the analysis, interpret results, and produce publication-ready output.
+Analyze supplied data, not expected outcomes. If data or a defensible analysis
+plan is missing, report what is needed; do not fill the gap with example results.
+In reviewer/audit mode, do not modify the manuscript, data, or existing analyses.
 
-## When to Use
+## 1. Establish the Design
 
-This skill is invoked by agents (typically **Writer** or **Reviewer**) or directly by the user when:
-- An experiment needs a statistical test to validate claims
-- A Reviewer questions whether statistical reporting is correct
-- The user needs help choosing the right test for their data
-- Results need proper formatting for a paper (p-values, effect sizes, confidence intervals)
+Clarify the research question, estimand (the quantity to estimate), outcome type,
+experimental unit, sample sizes, pairing/repeated measures, clustering,
+confounders, missingness, and planned comparisons. Separate confirmatory tests
+from exploratory analyses. Honor preregistered decisions and record deviations.
 
-## Prerequisites
+Specify the significance level, one- or two-sided alternative, confidence level,
+and multiple-testing family before inspecting significance. Do not treat repeated
+runs, folds, or measurements of the same unit as independent participants.
 
-- The `research-latex` Docker image must include Python scientific packages (scipy, statsmodels, pandas, numpy, matplotlib)
-- Data must be accessible as files in the paper directory (CSV, JSON, or inline)
+## 2. Choose a Defensible Method
 
-## Procedure
+| Design / objective | Candidate method and caveat |
+|--------------------|----------------------------|
+| Difference in means, independent groups | Welch's t-test (`equal_var=False`) when mean-based inference is appropriate; pooled-variance t-test needs an equal-variance justification |
+| Difference in paired means | Paired t-test; assess the paired differences, not each group's marginal normality |
+| Independent ordinal/distributional comparison | Mann-Whitney U; not automatically a test of medians without additional distributional assumptions |
+| Paired rank-based comparison | Wilcoxon signed-rank requires appropriate symmetry of differences; consider another design-appropriate method when this is not defensible |
+| More than two independent groups | ANOVA, Welch ANOVA, or an appropriate regression; Kruskal-Wallis answers a rank/distributional question |
+| Repeated or clustered observations | Repeated-measures or mixed-effects methods; account for dependence and the method's assumptions |
+| Categorical outcomes | Chi-squared or Fisher's exact for suitable independent tables; matched outcomes need matched-data methods |
+| Association / prediction | Pearson, Spearman, or a suitable regression according to the estimand and outcome; correlation is not causation |
 
-### 1. Understand the Research Question
+These are starting points, not an automatic decision tree. Nonparametric methods
+also have assumptions and may answer a different question. Permutation and
+bootstrap procedures must preserve the sampling/assignment structure.
 
-Before choosing any test, clarify:
-- **What is being compared?** (two groups, multiple groups, pre/post, correlation)
-- **What is the outcome variable?** (continuous, ordinal, categorical, count)
-- **What is the sample size?**
-- **Is the design within-subjects or between-subjects?**
-- **Are there confounders or covariates?**
+For multiple comparisons, identify the family and justify family-wise error
+control (for example Holm) or false discovery rate control (for example
+Benjamini-Hochberg under appropriate conditions). Report the chosen adjustment
+and both raw and adjusted p-values where relevant.
 
-### 2. Choose the Appropriate Test
+## 3. Check Assumptions
 
-Follow this decision framework:
+Use design review, sample sizes, diagnostic plots, residuals or paired
+differences, and domain knowledge. A non-significant Shapiro-Wilk or Levene test
+does not prove an assumption; do not choose a test solely by a normality-test
+p-value. Do not transform outcomes or switch tests repeatedly to obtain a
+desired result. Justify sensitivity analyses and disclose their results.
 
-#### Comparing two groups
-| Data type | Paired? | Normal? | Test |
-|-----------|---------|---------|------|
-| Continuous | No | Yes | Independent t-test |
-| Continuous | No | No | Mann-Whitney U |
-| Continuous | Yes | Yes | Paired t-test |
-| Continuous | Yes | No | Wilcoxon signed-rank |
-| Categorical | — | — | Chi-squared / Fisher's exact |
+## 4. Execute Reproducibly
 
-#### Comparing three or more groups
-| Data type | Paired? | Normal? | Test |
-|-----------|---------|---------|------|
-| Continuous | No | Yes | One-way ANOVA |
-| Continuous | No | No | Kruskal-Wallis |
-| Continuous | Yes | Yes | Repeated-measures ANOVA |
-| Continuous | Yes | No | Friedman test |
-
-#### Relationships
-| Question | Test |
-|----------|------|
-| Linear relationship between two continuous variables | Pearson correlation |
-| Monotonic relationship, non-normal | Spearman correlation |
-| Predict outcome from predictors | Linear/logistic regression |
-
-#### Multiple comparisons
-When performing multiple tests, apply corrections:
-- **Bonferroni** — conservative, multiply p-values by number of tests
-- **Holm-Bonferroni** — less conservative step-down procedure
-- **Benjamini-Hochberg** — controls false discovery rate (FDR)
-
-### 3. Check Assumptions
-
-Before running any test, verify its assumptions. Write and execute a Python script:
+Save the analysis under the paper's `analysis/` directory and run from the
+repository root using [the analysis helper](scripts/run-analysis.sh):
 
 ```bash
-.github/skills/statistician/scripts/run-analysis.sh [paper-dir] [script.py]
+.github/skills/statistician/scripts/run-analysis.sh papers/<name> analysis/run.py --args --seed 42
 ```
 
-**Common assumption checks:**
-- **Normality**: Shapiro-Wilk test (`scipy.stats.shapiro`), Q-Q plots
-- **Homogeneity of variance**: Levene's test (`scipy.stats.levene`)
-- **Independence**: study design review (not testable statistically)
-- **Sample size adequacy**: rule-of-thumb minimums per test
+The helper runs Python in the `research-latex` image, with the paper mounted at
+`/paper`. The script argument is relative to the paper directory; extra arguments
+after `--args` are forwarded unchanged. Docker must be available.
 
-If assumptions are violated:
-1. Try a data transformation (log, sqrt, rank)
-2. Switch to a non-parametric alternative
-3. Document the violation and justify the chosen approach
+Record the input file hashes, analysis script, exclusions, sample sizes after
+missing-data handling, random seed/resampling counts, package versions, and
+Docker image ID. An unpinned image tag alone does not establish reproducibility.
+Fail explicitly on missing data, invalid inputs, or non-finite results.
 
-### 4. Execute the Analysis
-
-Write a Python script that:
-1. Loads the data
-2. Runs assumption checks
-3. Executes the statistical test(s)
-4. Computes effect sizes (Cohen's d, η², r, odds ratio — as appropriate)
-5. Computes confidence intervals
-6. Saves results as JSON for structured consumption
-7. Optionally generates plots (saved as PDF for LaTeX inclusion)
-
-Run it inside the Docker container:
-
-```bash
-.github/skills/statistician/scripts/run-analysis.sh [paper-dir] [script.py]
-```
-
-The script should output structured JSON to `output/analysis/`:
+Write results to `output/analysis/`. Use a shape such as this **unexecuted
+template**, replacing values only with actual computations:
 
 ```json
 {
-  "test_name": "Independent t-test",
-  "statistic": 2.45,
-  "p_value": 0.018,
-  "effect_size": {"metric": "Cohen's d", "value": 0.72},
-  "confidence_interval": [0.12, 1.32],
-  "sample_sizes": {"group_a": 30, "group_b": 28},
-  "assumptions": {
-    "normality": {"met": true, "test": "Shapiro-Wilk", "p_values": [0.34, 0.21]},
-    "equal_variance": {"met": true, "test": "Levene", "p_value": 0.45}
-  },
-  "interpretation": "Statistically significant difference..."
+  "status": "not_run",
+  "test_name": null,
+  "estimand": null,
+  "alternative": "two-sided",
+  "statistic": null,
+  "degrees_of_freedom": null,
+  "p_value": null,
+  "adjusted_p_value": null,
+  "adjustment_method": null,
+  "effect_size": {"metric": null, "value": null},
+  "confidence_interval": {"estimand": null, "level": 0.95, "low": null, "high": null, "method": null},
+  "sample_sizes": {},
+  "assumption_checks": [],
+  "limitations": []
 }
 ```
 
-### 5. Report Results
+Use valid JSON (`allow_nan=False` in Python). Explain unavailable quantities
+rather than writing `NaN`, `Infinity`, or a fabricated estimate.
 
-Produce LaTeX-ready text following APA-style statistical reporting conventions:
+## 5. Report
 
-**Inline reporting format:**
-```latex
-A significant difference was found between conditions
-($t(56) = 2.45$, $p = .018$, $d = 0.72$, 95\% CI $[0.12, 1.32]$).
-```
+- Report the effect direction, magnitude, uncertainty, sample sizes, test
+  statistic, applicable degrees of freedom, and exact p-values with suitable
+  precision. Do not round a small p-value to zero.
+- Name the estimand for every confidence interval: a CI for the mean difference
+  is not a CI for Cohen's d. State the effect-size convention and interval method.
+- Distinguish statistical from practical significance. A non-significant result
+  is not evidence of equivalence; equivalence/noninferiority needs an appropriate
+  design and justified margin.
+- Match the venue's reporting style. Generate LaTeX prose/tables from the saved
+  results, not hand-copied example numbers.
+- Keep diagnostic plots in `output/analysis/`. For publication figures, export
+  reproducible SVG plots and hand off to `illustrator`/`svg-renderer`; do not
+  manually alter plotted results for appearance.
 
-**Rules for reporting:**
-- Report exact p-values to three decimal places (e.g., $p = .018$), not inequalities ($p < .05$), unless $p < .001$
-- Always include effect sizes — statistical significance alone is insufficient
-- Always include confidence intervals where applicable
-- Report test statistics with degrees of freedom
-- Round appropriately: test statistics to 2 decimal places, p-values to 3
+## 6. Power and Precision
 
-**For tables:** produce a `booktabs`-style LaTeX table:
+Prefer prospective sample-size planning or sensitivity analysis using a
+scientifically justified effect, alpha, target power, allocation, and design.
+State the assumed effect and the units required per group. Do not use
+"observed power" calculated from the observed effect as additional evidence for
+an already-completed significance test; report effect uncertainty instead.
 
-```latex
-\begin{table}[t]
-\centering
-\caption{Statistical comparison of conditions.}
-\label{tab:stats}
-\footnotesize
-\begin{tabular}{@{}lcccc@{}}
-\toprule
-\textbf{Comparison} & \textbf{$t$} & \textbf{$p$} & \textbf{$d$} & \textbf{95\% CI} \\
-\midrule
-A vs.\ B & 2.45 & .018 & 0.72 & [0.12, 1.32] \\
-\bottomrule
-\end{tabular}
-\end{table}
-```
+For a simple independent two-group design, `TTestIndPower.solve_power` may help
+with planning; round required sample sizes upward and account separately for
+attrition, clustering, and multiplicity. Do not generalize this calculation to
+more complex designs without justification.
 
-### 6. Power Analysis (Optional)
+## Method References
 
-When requested or when sample sizes are small, perform a post-hoc or a priori power analysis:
-
-```python
-from statsmodels.stats.power import TTestIndPower
-analysis = TTestIndPower()
-# A priori: how many subjects do we need?
-n = analysis.solve_power(effect_size=0.5, alpha=0.05, power=0.8)
-# Post-hoc: what power did we achieve?
-power = analysis.solve_power(effect_size=0.5, alpha=0.05, nobs1=30)
-```
-
-Report power alongside results when relevant.
-
-## Important Rules
-
-- **Never fabricate data or results** — only analyze actual data provided by the user
-- **Always check assumptions** before running parametric tests
-- **Always report effect sizes** — p-values alone are insufficient for academic papers
-- **Be transparent about limitations** — small sample sizes, violated assumptions, multiple comparisons
-- **Use the container** — all Python execution happens in the Docker container for reproducibility
-- **Save scripts** — analysis scripts go in `analysis/` directory alongside the data, so they're reproducible
-- **Prefer non-parametric when in doubt** — if assumptions are borderline, the non-parametric alternative is safer
+- [SciPy: independent t-tests and Welch's option](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.ttest_ind.html)
+- [SciPy: Mann-Whitney U assumptions and interpretation](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.mannwhitneyu.html)
+- [statsmodels: two-group power planning](https://www.statsmodels.org/stable/generated/statsmodels.stats.power.TTestIndPower.solve_power.html)

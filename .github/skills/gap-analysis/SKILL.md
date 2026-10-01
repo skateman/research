@@ -1,10 +1,6 @@
 ---
-name: Gap Analysis
-description: Identify research gaps, novelty overlaps, and positioning opportunities by searching academic databases and analyzing existing references.
-tools:
-  - read
-  - search
-  - paper-search
+name: gap-analysis
+description: Check a research idea or manuscript against nearby literature for overlap, coverage gaps, and defensible positioning. Use for a bounded novelty check before committing to a direction, not as proof that no prior work exists.
 ---
 
 # Gap Analysis Skill
@@ -47,8 +43,11 @@ Given a research idea (topic, title, abstract, or plan), search for existing wor
 5. **Assess the landscape**:
    - **Crowded**: 5+ direct overlaps → need strong differentiation
    - **Active but open**: adjacent work exists, direct overlap is sparse → promising gap
-   - **Untouched**: no direct or adjacent work → either truly novel or wrong search terms (retry with different terminology before concluding)
+   - **Insufficient evidence**: no direct or adjacent work found within the search scope; retry with different terminology and report the coverage limit, not that the area is untouched
    - **Settled**: the problem is well-solved with established methods → incremental contribution at best
+
+These labels are qualitative summaries, not validated novelty scores. Justify
+them from the actual contributions read, not a result count or title match.
 
 ### 2. Coverage Gap Analysis
 
@@ -63,7 +62,8 @@ Given an existing `.bib` file and a research topic, identify what's missing.
 5. Report:
    - **Blind spots** — important subtopics with zero coverage
    - **Weak coverage** — subtopics with only 1–2 tangential references
-   - **Recency gaps** — areas where the newest citation is 3+ years old
+   - **Recency gaps** — missing relevant recent work in a changing field; do not
+     treat an older foundational source as obsolete merely because of its age
    - **Missing seminal works** — highly-cited papers in the field not yet referenced
    - **Missing competitors** — approaches solving the same problem differently
 
@@ -90,7 +90,7 @@ Report results concisely. The format depends on the caller:
 ```markdown
 ## Gap Analysis: [Topic]
 
-### Landscape: [Crowded / Active but open / Untouched / Settled]
+### Landscape: [Crowded / Active but open / Insufficient evidence / Settled]
 
 ### Closest Existing Work
 - **[Author Year]** — [what they did] | [how proposed work differs]
@@ -115,6 +115,7 @@ Report results concisely. The format depends on the caller:
 - **Do not hallucinate metadata** — titles, authors, years, venues must come from search results
 - **Be honest about coverage** — if searches returned few results, say so; don't pretend the analysis is comprehensive
 - **Vary search terms** — if the first query returns nothing, try synonyms and alternative framings before concluding "nothing exists"
-- **ALWAYS use the paper-search MCP tools** — use the `paper-search` and `paper-search-py` MCP tool calls for all literature searches. Do NOT use `curl`, `fetch`, or shell commands to call academic APIs directly. The MCP tools handle rate limiting and provide structured results.
+- **Discover tools first** — prefer available `paper-search` and `paper-search-py` MCP tools; follow **referencer** for source verification and access fallbacks. Report unavailable databases instead of claiming they were searched.
+- **Record scope** — include the date, databases, queries, filters, and whether evidence was read as metadata, abstract, or full text. Search absence does not establish novelty.
 - **Keep it fast** — this is a targeted check, not a survey. 3–5 queries total, 5–10 results each. If more depth is needed, recommend the **@researcher** agent
 - **Distinguish overlap from competition** — "someone worked on X" ≠ "your idea is not novel". The twist, angle, or application domain may still be unique

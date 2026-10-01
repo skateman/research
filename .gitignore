@@ -1,0 +1,6 @@
+.DS_Store
+.venv/
+__pycache__/
+.copilot/session-state/
+.vscode/mcp.json
+papers/**/output/texmf-cache/

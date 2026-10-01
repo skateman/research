@@ -1,10 +1,4 @@
-.git
-output/
-*.pdf
-*.aux
-*.log
-*.bbl
-*.blg
-*.fls
-*.fdb_latexmk
-*.synctex.gz
+# The image installs tools only; never send manuscripts or MCP settings as context.
+**
+!Dockerfile
+!.dockerignore

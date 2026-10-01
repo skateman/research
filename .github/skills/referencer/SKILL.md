@@ -1,91 +1,75 @@
 ---
-name: Referencer
-description: Search for relevant academic references, validate existing citations, and manage BibTeX entries using Google Scholar and Paper Search (arXiv, Semantic Scholar, PubMed, OpenAlex, CrossRef, and more).
-tools:
-  - read
-  - edit
-  - search
-mcp-servers:
-  paper-search:
-    type: stdio
-    command: npx
-    args:
-      - "-y"
-      - "paper-search-mcp-nodejs"
-  paper-search-py:
-    type: stdio
-    command: npx
-    args:
-      - "-y"
-      - "@smithery/cli"
-      - "run"
-      - "@openags/paper-search-mcp"
+name: referencer
+description: Find and verify academic references, check whether sources support manuscript claims, and maintain BibTeX. Use for missing citations, DOI/metadata checks, duplicate entries, or bibliography cleanup.
 ---
 
-# Referencer Skill
+# Referencer
 
-You manage academic references and citations. You search for relevant papers across multiple academic databases, validate existing bibliography entries, and maintain BibTeX files.
+Keep bibliographic identity and evidentiary support separate: resolving a DOI
+proves neither that a paper supports a claim nor that its findings are reliable.
 
-## MCP Servers
+## Tools and Access
 
-You have access to two complementary paper search tools:
+Prefer the configured `paper-search` and `paper-search-py` MCP servers. Discover
+the available tools and their schemas before calling them; server names and
+published feature lists do not guarantee that a tool or database is available.
+This skill neither provisions MCP servers nor declares tool pre-approvals.
 
-| MCP Server | Sources | Best for |
-|------------|---------|----------|
-| **paper-search** | arXiv, PubMed, Google Scholar, Web of Science, Sci-Hub, ScienceDirect, Springer, Wiley, Scopus, CrossRef, and more | Broad discovery, Web of Science access, publisher platforms |
-| **paper-search-py** | arXiv, PubMed, bioRxiv, Semantic Scholar, CrossRef, OpenAlex, CORE, dblp, PMC, Europe PMC, Zenodo, HAL, SSRN, and more | Multi-source search, open-access PDF retrieval, DOI resolution |
-
-**Strategy**: Use both tools as complementary sources. `paper-search` has broader publisher coverage (Web of Science, Scopus, ScienceDirect). `paper-search-py` has more open-access sources (CORE, OpenAlex, Zenodo, HAL). Cross-reference results for best coverage.
-
-## Capabilities
-
-### 1. Search for References
-
-Given a topic, claim, or research question, search Google Scholar to find relevant papers:
-
-- Use keyword searches to find foundational and recent work
-- Filter by relevance, recency, and citation count
-- Return results as formatted BibTeX entries ready to insert into `.bib` files
-
-### 2. Validate Existing References
-
-Read the paper's `.bib` file and `.tex` files to check:
-
-- **Completeness** — every `\cite{}` in the text has a corresponding BibTeX entry
-- **Orphans** — BibTeX entries not cited anywhere in the text
-- **Quality** — entries have all required fields (author, title, year, venue/journal)
-- **Consistency** — citation key naming convention is uniform
-- **Duplicates** — detect papers cited under different keys
-- **Recency** — flag very old references where newer alternatives may exist
-
-### 3. Find Missing References
-
-Identify claims in the text that should be cited but aren't:
-- Statements like "Previous work has shown..." without a citation
-- Comparisons to other methods without references
-- Claims about the state of the art
-
-### 4. Format BibTeX Entries
-
-Ensure all entries follow a consistent format:
-- Preferred key format: `AuthorYear` (e.g., `Smith2023`)
-- Include DOI when available
-- Use standard entry types (`@article`, `@inproceedings`, `@book`, etc.)
-- Clean up auto-generated entries from Google Scholar (they're often messy)
+- Use available scholarly indexes such as Crossref, Semantic Scholar, arXiv,
+  PubMed, or Google Scholar as appropriate to the topic.
+- If a provider fails, record the failure and try another available source.
+  Publisher pages, DOI landing pages, and institutional repositories are useful
+  verification fallbacks through the host's web tools.
+- Do not invent tool names, silently substitute a different database, or claim
+  access to unavailable subscription services.
+- Retrieve full text only through legitimate open-access or authorized routes.
+  Do not use shadow libraries or bypass access controls.
+- Keep queries limited to public topic terms. Do not upload unpublished
+  manuscripts, confidential reviewer comments, credentials, or private datasets.
 
 ## Procedure
 
-1. **Read** the `.bib` file(s) and all `.tex` files
-2. **Identify** what needs attention (missing refs, broken citations, gaps)
-3. **Search** Google Scholar for needed references
-4. **Update** the `.bib` file with new or corrected entries
-5. **Update** the `.tex` files with new `\cite{}` commands where appropriate
-6. **Report** a summary of changes made
+1. **Establish scope.** Identify the paper directory, entry file, included
+   sources, bibliography files, citation package, and whether the task is an
+   audit or permits edits. In review/audit mode, return findings without changing
+   `.tex` or `.bib` files.
+2. **Check local integrity.** Follow the manuscript's included files and citation
+   commands, including biblatex/natbib variants and `\nocite`. Account for
+   `crossref`, `xdata`, shared bibliographies, and intentional uncited entries.
+   Flag apparently unused records; never prune them automatically.
+3. **Search proportionately.** Start with a few targeted queries; broaden if
+   evidence is insufficient. Record provider, query, retrieval date, and stable
+   identifiers. Prefer appropriate primary sources, not citation counts alone.
+4. **Verify metadata.** Match title, authors, year, publication version, and
+   venue against authoritative records. Prefer a DOI when one exists; legitimate
+   books, standards, datasets, and software may use other identifiers. Check
+   available correction/retraction notices for central evidence.
+5. **Verify support.** Read the relevant abstract or full-text passage. Record
+   the location and whether support is direct, partial, contradictory, or not
+   assessed. Titles and search snippets are discovery aids, not claim validation.
+   Do not imply a full-text check when only metadata or an abstract was accessible.
+6. **Edit only within authorization.** Preserve stable citation keys and the
+   existing bibliography style. Resolve duplicates carefully, updating all
+   consumers if a key changes. Prefer the version actually supporting the cited
+   finding; distinguish preprints from peer-reviewed publications.
+7. **Check the result.** Ensure new citation keys resolve, required entry fields
+   match their entry types, special characters are escaped correctly, and any
+   unresolved claims remain explicitly marked.
 
-## Important Rules
+## Coordination
 
-- Always prefer peer-reviewed venues (conferences, journals) over preprints
-- When multiple versions exist (arXiv preprint + published version), cite the published version
-- **ALWAYS use the paper-search MCP tools** for all searches — use `paper-search` and `paper-search-py` tool calls. Do NOT use `curl`, `fetch`, or shell commands to call academic APIs directly.
-- Respect the paper's existing citation style (natbib vs biblatex, numeric vs author-year)
-- Never fabricate references — only add entries for papers that actually exist and were found via search
+For bibliography-only work, write only the assigned `.bib` file and return
+proposed prose/citation changes to the caller. If authorized to edit `.tex`,
+serialize with `humanizer`, `writer`, `formatter`, and `anonymizer`. Changing
+different parts of one file is not safe parallel ownership.
+
+Use `% TODO: source needed for ...` for unresolved claims in a draft; do not
+create fictitious bibliography records or `\cite{TODO:...}` keys. Preserve and
+resolve existing placeholders without disguising them as verified references.
+
+## Output
+
+Return sources added/corrected, stable links or DOIs, claim-support findings with
+reading depth, unresolved citation keys, possible unused records, and search
+coverage limitations. Persist a search/evidence log in the paper's `research/`
+directory only when the requested workflow calls for a saved research artifact.

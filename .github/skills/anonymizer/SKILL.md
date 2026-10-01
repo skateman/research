@@ -1,39 +1,51 @@
 ---
-name: Anonymizer
-description: Strip self-references, author names, and acknowledgments from a paper for blind review submission.
-tools:
-  - read
-  - edit
-  - search
+name: anonymizer
+description: Prepare an author-anonymous submission when the venue requires it. Check author blocks, identifying prose, acknowledgments, supplements, and PDF metadata while preserving real citations and a reversible source.
 ---
 
-# Anonymizer Skill
+# Anonymizer
 
-You anonymize academic papers for blind (single or double) review submission.
+Apply the venue's actual author-anonymity policy. Single-blind review normally
+hides reviewers' identities, not authors': do not anonymize merely because a CFP
+uses the word "blind". If the policy is missing or ambiguous, ask before editing.
 
 ## Procedure
 
-1. **Read the paper** — scan all `.tex` files in the paper directory
-2. **Identify self-references** — find patterns that reveal author identity:
-   - Author names in `\author{}` blocks — replace with "Anonymous" or "Author(s)"
-   - Affiliation in `\affiliation{}`, `\institute{}`, or `\institution{}` — replace with "Anonymous Institution"
-   - Self-citations like "In our previous work [AuthorName, 2023]" or "As shown by AuthorLastName et al." — replace with "[Anonymous, Year]" or "[Anonymized]"
-   - Acknowledgments sections — comment out or replace with placeholder
-   - Email addresses, ORCID IDs, funding grant numbers that identify the authors
-   - Headers/footers containing author names
-   - PDF metadata (`\hypersetup{pdfauthor=...}`)
-3. **Preserve referential integrity** — ensure anonymized citations still have BibTeX entries (use placeholder keys like `anon2023a`)
-4. **Create an anonymization log** — list all changes made so they can be reversed after review
+1. Read the CFP and the manuscript's entry file, included sources, bibliography,
+   supplements, and template options. Identify the exact submission artifacts.
+2. Preserve an identifiable source through the template's anonymous/review mode
+   where available. Otherwise prepare a separate submission copy or an explicitly
+   approved reversible edit. Do not overwrite the only identifiable version.
+3. Remove or suppress information the policy prohibits:
+   - Author names, affiliations, emails, ORCIDs, identifying headers and footers.
+   - Acknowledgments, author contributions, and identifying grant information.
+   - Identifying repository, artifact, preregistration, and project URLs.
+   - Names in figure labels, image metadata, supplementary files, and PDF metadata.
+4. Rewrite revealing self-reference in neutral third person: "In our previous
+   work..." becomes a factual description followed by the **real citation**.
+   Keep the real authors, title, DOI, and bibliography key. Only mask a reference
+   when the venue explicitly requires it, using the venue's prescribed method.
+   Never invent an "Anonymous, Year" publication or silently remove relevant work.
+5. Keep any identity mapping or restoration log outside the submission artifacts,
+   in a user-approved private location. Do not repeat removed identities in the
+   public-facing report.
+6. Use the `compiler` skill to rebuild the anonymous variant. Inspect visible page
+   content, extracted PDF text, and `pdfinfo` metadata; also check the actual
+   supplementary files and archive contents that will be submitted.
 
-## Anonymization Patterns to Check
+## Boundaries
 
-- `\author{...}` → `\author{Anonymous}`
-- `\thanks{...}` → comment out
-- `\affiliation{...}` → `\affiliation{Anonymous Institution}`
-- Self-citing patterns: "we previously showed", "in [OurName, Year]", "our earlier work"
-- Git metadata in the document
-- File paths or URLs containing usernames
+- Do not claim anonymity from a source-only search. Inspect the final PDF and
+  report anything that could not be inspected.
+- Do not guarantee that identity cannot be inferred from the research topic,
+  public preprints, or distinctive artifacts.
+- Do not delete citations, results, or methodological detail to hide identity.
+- Do not place backups, identifying logs, or the non-anonymous PDF in the
+  submission package.
+- Perform this stage after manuscript edits finish, not concurrently with them.
 
 ## Output
 
-After anonymizing, suggest running the **compiler** skill to rebuild the PDF and verify no identifying information remains.
+Report the anonymous artifact path, the policy applied, categories changed,
+checks completed, and remaining risks. Describe how to restore the author
+version without exposing the identity mapping.

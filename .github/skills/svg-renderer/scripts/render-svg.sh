@@ -1,128 +1,92 @@
-#!/bin/sh
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
 
-# render-svg.sh — Convert SVG to PNG preview and/or PDF for LaTeX
-# Runs inside the research-latex Docker container (requires rsvg-convert)
-#
-# Usage:
-#   render-svg.sh <input.svg> [options]
-#
-# Options:
-#   --format png|pdf|both   Output format (default: png)
-#   --output <path>         Output file path (default: alongside input)
-#   --dpi <value>           DPI for PNG rendering (default: 300)
-#   --width <pixels>        Output width in pixels (overrides DPI)
-
+# Usage: render-svg.sh input.svg [--format png|pdf|both] [--output path]
+#        [--dpi positive-integer] [--width positive-integer]
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+source "$SCRIPT_DIR/../../../../scripts/lib/research-container.sh"
 
-# Defaults
-FORMAT="png"
+FORMAT=png
 DPI=300
 WIDTH=""
 OUTPUT=""
-
-# Parse arguments
 INPUT=""
-while [ $# -gt 0 ]; do
+while [ "$#" -gt 0 ]; do
     case "$1" in
-        --format)  FORMAT="$2";  shift 2 ;;
-        --output)  OUTPUT="$2";  shift 2 ;;
-        --dpi)     DPI="$2";     shift 2 ;;
-        --width)   WIDTH="$2";   shift 2 ;;
-        -*)        echo "Unknown option: $1" >&2; exit 1 ;;
-        *)         INPUT="$1";   shift ;;
+        --format|--output|--dpi|--width)
+            [ "$#" -ge 2 ] && [ -n "$2" ] || research_error "Missing value for $1"
+            case "$1" in
+                --format) FORMAT="$2" ;;
+                --output) OUTPUT="$2" ;;
+                --dpi) DPI="$2" ;;
+                --width) WIDTH="$2" ;;
+            esac
+            shift 2
+            ;;
+        -*) research_error "Unknown option: $1" ;;
+        *)
+            [ -z "$INPUT" ] || research_error "Expected one input SVG, got another argument: $1"
+            INPUT="$1"
+            shift
+            ;;
     esac
 done
 
-if [ -z "$INPUT" ]; then
-    echo "Usage: render-svg.sh <input.svg> [--format png|pdf|both] [--dpi N] [--width N] [--output path]" >&2
-    exit 1
-fi
-
-if [ ! -f "$INPUT" ]; then
-    echo "Error: Input file not found: $INPUT" >&2
-    exit 1
-fi
-
-# Resolve absolute path for Docker mount
-INPUT_ABS="$(cd "$(dirname "$INPUT")" && pwd)/$(basename "$INPUT")"
-INPUT_DIR="$(dirname "$INPUT_ABS")"
-INPUT_NAME="$(basename "$INPUT" .svg)"
-
-# Determine output path(s)
-if [ -n "$OUTPUT" ]; then
-    OUTPUT_ABS="$(cd "$(dirname "$OUTPUT")" 2>/dev/null && pwd)/$(basename "$OUTPUT")" 2>/dev/null || OUTPUT_ABS="$OUTPUT"
-    OUTPUT_DIR="$(dirname "$OUTPUT_ABS")"
-else
-    OUTPUT_DIR="$INPUT_DIR"
-fi
-
-# Build Docker image if needed
-if ! docker image inspect research-latex >/dev/null 2>&1; then
-    echo "Building research-latex Docker image..."
-    docker build -t research-latex -f "$REPO_ROOT/Dockerfile" "$REPO_ROOT"
-fi
-
-# Ensure output directory exists
-mkdir -p "$OUTPUT_DIR"
-
-render_png() {
-    local out="${1:-$OUTPUT_DIR/$INPUT_NAME.png}"
-    local size_args=""
-    if [ -n "$WIDTH" ]; then
-        size_args="-w $WIDTH -a"
-    else
-        size_args="-d $DPI -p $DPI"
-    fi
-
-    docker run --rm \
-        -v "$INPUT_DIR:/input:ro" \
-        -v "$(dirname "$out"):/output" \
-        research-latex \
-        rsvg-convert \
-            $size_args \
-            -f png \
-            -o "/output/$(basename "$out")" \
-            "/input/$(basename "$INPUT_ABS")"
-
-    echo "PNG: $out ($(du -h "$out" | cut -f1))"
-}
-
-render_pdf() {
-    local out="${1:-$OUTPUT_DIR/$INPUT_NAME.pdf}"
-
-    docker run --rm \
-        -v "$INPUT_DIR:/input:ro" \
-        -v "$(dirname "$out"):/output" \
-        research-latex \
-        rsvg-convert \
-            -f pdf \
-            -o "/output/$(basename "$out")" \
-            "/input/$(basename "$INPUT_ABS")"
-
-    echo "PDF: $out ($(du -h "$out" | cut -f1))"
-}
-
-echo "=== SVG Renderer ==="
-echo "Input: $INPUT_ABS"
-echo "Format: $FORMAT"
-
+[ -n "$INPUT" ] || research_error "Usage: render-svg.sh input.svg [--format png|pdf|both] [--output path]"
+[ -f "$INPUT" ] || research_error "Input SVG not found: $INPUT"
 case "$FORMAT" in
-    png)
-        render_png "$OUTPUT_ABS"
-        ;;
-    pdf)
-        render_pdf "$OUTPUT_ABS"
-        ;;
-    both)
-        render_png "$OUTPUT_DIR/$INPUT_NAME.png"
-        render_pdf "$OUTPUT_DIR/$INPUT_NAME.pdf"
-        ;;
-    *)
-        echo "Error: Unknown format '$FORMAT'. Use png, pdf, or both." >&2
-        exit 1
-        ;;
+    png|pdf|both) ;;
+    *) research_error "Unknown format: $FORMAT (expected png, pdf, or both)" ;;
 esac
+[[ "$DPI" =~ ^[1-9][0-9]*$ ]] || research_error "DPI must be a positive integer"
+if [ -n "$WIDTH" ]; then
+    [[ "$WIDTH" =~ ^[1-9][0-9]*$ ]] || research_error "Width must be a positive integer"
+fi
 
-echo "=== Done ==="
+INPUT_DIR="$(cd "$(dirname "$INPUT")" && pwd -P)"
+INPUT_ABS="$INPUT_DIR/$(basename "$INPUT")"
+INPUT_STEM="$(basename "$INPUT" .svg)"
+if [ -z "$OUTPUT" ]; then
+    OUTPUT="$INPUT_DIR/$INPUT_STEM"
+    [ "$FORMAT" = both ] || OUTPUT="$OUTPUT.$FORMAT"
+fi
+if [ "$FORMAT" != both ] && [[ "$OUTPUT" != *."$FORMAT" ]]; then
+    research_error "Output file must have a .$FORMAT extension"
+fi
+research_ensure_image
+mkdir -p "$(dirname "$OUTPUT")"
+OUTPUT_DIR="$(cd "$(dirname "$OUTPUT")" && pwd -P)"
+OUTPUT_ABS="$OUTPUT_DIR/$(basename "$OUTPUT")"
+[ "$OUTPUT_ABS" != "$INPUT_ABS" ] || research_error "Output must not overwrite the source SVG"
+
+render() {
+    local format="$1" out="$2"
+    local render_args=(rsvg-convert -f "$format")
+    if [ "$format" = png ]; then
+        if [ -n "$WIDTH" ]; then
+            render_args+=(-w "$WIDTH" -a)
+        else
+            render_args+=(-d "$DPI" -p "$DPI")
+        fi
+    fi
+    docker run --rm \
+        --user "$(id -u):$(id -g)" -e HOME=/tmp \
+        -v "$INPUT_DIR:/input:ro" \
+        -v "$OUTPUT_DIR:/output" \
+        "$RESEARCH_IMAGE" \
+        "${render_args[@]}" \
+        -o "/output/$(basename "$out")" "/input/$(basename "$INPUT_ABS")"
+    [ -s "$out" ] || research_error "Renderer did not produce a nonempty output: $out"
+    printf '%s: %s\n' "$format" "$out"
+}
+
+if [ "$FORMAT" = both ]; then
+    OUTPUT_STEM="$OUTPUT_ABS"
+    case "$OUTPUT_STEM" in
+        *.png|*.pdf) OUTPUT_STEM="${OUTPUT_STEM%.*}" ;;
+    esac
+    render png "$OUTPUT_STEM.png"
+    render pdf "$OUTPUT_STEM.pdf"
+else
+    render "$FORMAT" "$OUTPUT_ABS"
+fi

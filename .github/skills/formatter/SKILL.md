@@ -1,146 +1,93 @@
 ---
-name: Formatter
-description: Visually inspect rendered page images and adjust LaTeX source to improve PDF layout — resize tables and figures, fix whitespace, eliminate widows and orphans.
-tools:
-  - read
-  - edit
-  - shell
-  - vision
+name: formatter
+description: Inspect rendered manuscript pages and correct LaTeX layout within the venue's template rules. Use for overflow, unreadable figures, float placement, whitespace, widows/orphans, or page-limit compliance.
 ---
 
-# Formatter Skill
+# Formatter
 
-You improve the visual layout of academic papers by **inspecting rendered page images** and then adjusting the LaTeX source to fix problems. You combine visual analysis with LaTeX expertise.
+Improve presentation without changing scientific content or circumventing venue
+requirements. A shorter PDF is not compliant if its fonts, margins, or spacing
+violate the template.
 
-## Procedure
+## 1. Establish the Constraints
 
-### 1. Compile and Render
+Read the CFP and template guidance. Record allowed font sizes, margins, column
+layout, package restrictions, and the page-count rule, including whether
+references and appendices count. Do not invent a minimum length or pad a short
+paper simply to approach the maximum.
 
-First, ensure the paper has been compiled with page images rendered. If `output/pages/` doesn't exist or is stale, invoke the **compiler** skill (or run the build script directly):
+Coordinate exclusive ownership of the affected `.tex` files. Do not edit while
+the writer, referencer, humanizer, or anonymizer is changing them.
+
+## 2. Obtain Current Page Images
+
+Use `compiler` if sources changed or no verified build is available. Run helper
+commands from the repository root:
 
 ```bash
-.github/skills/compiler/scripts/build-pdf.sh [paper-dir]
+.github/skills/compiler/scripts/build-pdf.sh papers/<name> main.tex
 ```
 
-### 2. Check Page Count
+Read `output/pages/pages.json` inside the paper directory. Check that the PDF
+hash matches the inspected artifact and that all expected images are present.
+Rendering with `--pages-only` does not establish that the PDF reflects current
+LaTeX sources. Never infer freshness from file existence alone.
 
-Read `output/pages/pages.json` for the page count. If a CFP page limit is known:
-- **Over max**: formatting changes MUST reduce page count (shrink figures, tighten spacing, condense tables)
-- **Under min**: may need to expand content (suggest to **@writer**) or loosen spacing
+## 3. Inspect at Publication Size
 
-### 3. Visually Inspect Each Page
+Inspect every page of the final artifact when image tools are available:
 
-View the rendered page images in `output/pages/page-*.png` to identify layout issues:
+- Content or tables extending outside columns/margins.
+- Clipped, overlapping, or illegible figure text and legends.
+- Widows/orphans, stranded headings, and nearly empty final pages.
+- Float placement relative to the first reference.
+- Unexplained whitespace and inappropriate column balancing.
+- Captions, equations, and references with inconsistent formatting.
 
-- **Widows/orphans** — single lines stranded at page top or bottom
-- **Hanging sentences** — one sentence spilling onto a new page with the rest of the page blank
-- **Bad float placement** — figures or tables appearing far from their textual references, or clustered together
-- **Cramped or tiny figures** — figures scaled too small to be readable
-- **Figure text too small** — labels, annotations, or axis text in figures should be approximately the same size as the paper's body text when rendered. If figure text is noticeably smaller than surrounding prose, the figure needs regeneration at a larger font size
-- **Table overflow** — tables exceeding column or page width, text clipped
-- **Unbalanced columns** — in two-column formats, one column much shorter than the other
-- **Excessive whitespace** — large gaps between sections or around floats
-- **Section titles at page bottom** — a heading with no following content on the same page
-- **Margin violations** — content extending into margins
+If images cannot be inspected, report a source/log-only assessment. Do not claim
+visual verification from a page count or successful compilation.
 
-### 4. Apply Fixes in LaTeX Source
+## 4. Apply Permitted Fixes
 
-Based on visual inspection, make targeted adjustments:
+Prefer local, template-compatible changes:
 
-#### Widows and orphans:
-```latex
-\usepackage[all]{nowidow}
-% or manual:
-\widowpenalty=10000
-\clubpenalty=10000
+- Reflow tables using appropriate column types, wrapping, or `tabularx` where
+  allowed; do not shrink table text below the venue's minimum.
+- Choose sensible float placement within the class's rules.
+- Remove accidental blank lines, forced breaks, or redundant spacing commands.
+- Adjust a figure's size only while its labels remain readable at final width.
+- Use `microtype`, widow/orphan controls, or balancing tools only when compatible
+  with the class and permitted by the venue.
+
+Do **not** change margins, reduce mandated body/caption fonts, compress line or
+section spacing, add negative `\vspace`, or use `\enlargethispage` to evade a page
+limit. Do not add `caption`, `subcaption`, or `titlesec` blindly to a class that
+controls those features. The [snippet reference](templates/formatting-fixes.tex)
+is opt-in guidance, not a preamble to import wholesale.
+
+If approved layout changes cannot solve a problem, escalate for content cuts or
+figure regeneration rather than distorting the template or removing evidence.
+
+## 5. Rebuild and Confirm
+
+After edits, recompile and inspect the changed pages and affected downstream
+pages. Finish with a full visual pass on the final version. Stop after two
+unsuccessful layout/content round-trips and report remaining issues; do not
+launch another formatter merely because a compiler was run.
+
+## Output
+
+Report changes, the final artifact inspected, total PDF pages, counted pages
+under the CFP rule, visual-inspection coverage, and remaining limitations.
+Use these escalation flags when applicable:
+
+```text
+NEEDS_CONTENT_CUT: true/false
+NEEDS_CONTENT_EXPANSION: true/false
+NEEDS_REWRITE: true/false
+NEEDS_FIGURE_REGEN: true/false
 ```
 
-#### Float placement:
-```latex
-\begin{figure}[!htbp]  % Force placement preference
-```
-
-#### Table sizing:
-```latex
-\resizebox{\columnwidth}{!}{%
-  \begin{tabular}{...}
-  \end{tabular}
-}
-% or use tabularx for automatic column width:
-\begin{tabularx}{\columnwidth}{lXX}
-```
-
-#### Figure sizing:
-```latex
-\includegraphics[width=\columnwidth]{figure.pdf}
-```
-
-#### Microtype for better text flow:
-```latex
-\usepackage{microtype}
-```
-
-#### Manual spacing (use sparingly):
-```latex
-\vspace{-0.5em}           % Reduce vertical space
-\enlargethispage{\baselineskip}  % Fit one more line on this page
-```
-
-#### Page count reduction techniques:
-```latex
-% Tighten spacing around captions
-\usepackage[skip=4pt]{caption}
-% Reduce space around equations
-\abovedisplayskip=8pt
-\belowdisplayskip=8pt
-% Compact section spacing (use with titlesec)
-\titlespacing*{\section}{0pt}{1.5ex plus 0.5ex minus 0.2ex}{1ex plus 0.2ex}
-```
-
-### 5. Recompile and Re-inspect
-
-After applying fixes:
-1. Run the compiler skill again to rebuild PDF and re-render page images
-2. View the updated page images to verify the fixes
-3. Iterate until the layout meets quality standards
-
-### 6. Final Visual Verification
-
-Do one last pass through all page images confirming:
-- No remaining layout issues
-- Page count is within CFP limits
-- Consistent appearance throughout (figure widths, table styles, spacing)
-- Professional, polished look
-
-### 7. Report — Escalation for Content Changes
-
-Your final report MUST include a structured **escalation section** when layout-only fixes are insufficient:
-
-```
-## Formatter Report
-- Fixes applied: [list of layout changes]
-- Final page count: N / M max
-
-## Escalation (if any)
-- NEEDS_CONTENT_CUT: [true/false] — paper is over page limit and layout tricks are exhausted
-  - Sections to shorten: [specific sections, with word count estimates to cut]
-- NEEDS_CONTENT_EXPANSION: [true/false] — paper is under page minimum
-  - Sections that could expand: [specific sections, with word count estimates to add]
-- NEEDS_REWRITE: [true/false] — a passage is causing persistent layout problems (e.g., one sentence spilling onto next page)
-  - Passage location: [section, approximate line]
-  - Suggestion: [e.g., "Shorten this paragraph by ~2 lines to avoid page break"]
-- NEEDS_FIGURE_REGEN: [true/false] — one or more figures have text that is too small relative to body text, or are otherwise illegible at print size
-  - Figures: [list of figure filenames and what's wrong, e.g., "figures/architecture.pdf — labels are ~60% of body text size, need font bump"]
-```
-
-If none of these flags are true, omit the Escalation section entirely.
-
-## Important Rules
-
-- Never change the *content* of the paper — only layout and formatting
-- **When content changes are needed, escalate** — set the appropriate flag in your report so the orchestrator can dispatch `@writer`
-- Prefer LaTeX-native solutions over manual spacing hacks
-- Always recompile and visually verify after changes
-- Respect page limits from the CFP
-- Maintain consistency across the paper (e.g., all figures same width)
-- The visual inspection via page images is your primary analysis tool — use it before and after every change
+For each true flag, give exact section/figure locations and an actionable
+description. Expansion is justified only by a genuine content gap or an explicit
+minimum, not cosmetic page filling. Do not perform substantive rewrites yourself.

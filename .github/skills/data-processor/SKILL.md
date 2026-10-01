@@ -1,15 +1,11 @@
 ---
-name: Data Processor
-description: Ingest, clean, transform, and summarize datasets for analysis. Produces analysis-ready data, descriptive statistics, and summary visualizations.
-tools:
-  - shell
-  - read
-  - edit
+name: data-processor
+description: Inspect, clean, transform, and summarize supplied datasets for analysis. Use for data quality checks, missingness, merges, descriptive statistics, and reproducible exploratory plots while preserving raw observations.
 ---
 
 # Data Processor Skill
 
-You prepare data for statistical analysis and paper reporting. Given raw datasets, you clean, transform, and summarize them, producing analysis-ready outputs that the **Statistician** skill and paper-writing agents can consume.
+You prepare data for statistical analysis and paper reporting. Given raw datasets, you clean, transform, and summarize them, producing analysis-ready outputs that the **statistician** skill and paper-writing agents can consume. In audit-only mode, report issues without changing data or manuscript files.
 
 ## When to Use
 
@@ -30,16 +26,24 @@ This skill is invoked by agents (typically **Drafter**, **Writer**) or directly 
 |--------|-----------|---------|
 | CSV / TSV | `.csv`, `.tsv` | `pandas.read_csv()` |
 | JSON | `.json` | `pandas.read_json()` |
-| Excel | `.xlsx`, `.xls` | `pandas.read_excel()` (if openpyxl installed) |
-| Parquet | `.parquet` | `pandas.read_parquet()` |
+| Excel (modern) | `.xlsx` | `pandas.read_excel()` with optional `openpyxl` |
+| Excel (legacy) | `.xls` | `pandas.read_excel()` with optional `xlrd` |
+| Parquet | `.parquet` | `pandas.read_parquet()` with optional `pyarrow` or `fastparquet` |
 | SQLite | `.db`, `.sqlite` | `pandas.read_sql()` |
 | Fixed-width | `.txt`, `.dat` | `pandas.read_fwf()` |
+
+The Docker image does not promise these optional Excel/Parquet engines. Check
+availability when that format is requested; report a missing dependency and
+update the image deliberately rather than silently switching formats or
+installing packages in a disposable container.
 
 ## Procedure
 
 ### 1. Ingest and Inspect
 
-Load the data and produce an initial profile:
+Identify the observation unit, data provenance, expected schema, identifiers,
+encoding, units, and privacy constraints. Load the data and produce an initial
+profile without printing sensitive participant records:
 
 ```python
 import pandas as pd
@@ -49,7 +53,6 @@ print(f"Shape: {df.shape}")
 print(f"Columns: {list(df.columns)}")
 print(f"Data types:\n{df.dtypes}")
 print(f"Missing values:\n{df.isnull().sum()}")
-print(f"First 5 rows:\n{df.head()}")
 ```
 
 Report:
@@ -63,8 +66,11 @@ Report:
 Address data quality issues. Document every cleaning decision:
 
 **Missing values:**
-- If < 5% missing in a column: consider imputation (mean/median for continuous, mode for categorical) or listwise deletion
-- If > 20% missing: flag the column and ask the user whether to drop or impute
+- Profile missingness by variable, group, and observation unit
+- Choose deletion or imputation from the study design, missingness assumptions,
+  and downstream estimand, not a universal percentage threshold
+- Confirm consequential cleaning decisions with the user or follow an approved
+  analysis plan; do not silently mean-impute or drop incomplete observations
 - Document the strategy chosen and the number of rows affected
 
 **Outliers:**
@@ -78,7 +84,9 @@ Address data quality issues. Document every cleaning decision:
 
 **Duplicates:**
 - Identify and report duplicate rows
-- Remove exact duplicates; flag near-duplicates for user review
+- Distinguish confirmed duplicate records from legitimate repeated measurements
+  or different participants with identical values. Remove only records confirmed
+  redundant under the study's identifier rules and approved cleaning plan.
 
 ### 3. Transform
 
@@ -90,6 +98,10 @@ Apply transformations as needed for downstream analysis:
 - **Aggregation** — group-by summaries for hierarchical data
 - **Pivoting / Melting** — reshape wide ↔ long format
 - **Feature engineering** — derived columns (differences, ratios, interactions)
+
+Check join cardinality and report unmatched or multiplied rows after merges. For
+predictive evaluation, split data before fitting imputation, scaling, or feature
+selection; fit transformations on training data only to avoid leakage.
 
 Save transformed data to `data/processed/`:
 
@@ -116,7 +128,8 @@ for col in categorical_cols:
     print(df[col].value_counts(normalize=True))
 ```
 
-Output a LaTeX-ready descriptive statistics table:
+Output a LaTeX-ready descriptive statistics table. The following numbers are
+illustrative formatting examples, not results to copy into a manuscript:
 
 ```latex
 \begin{table}[t]
@@ -137,7 +150,9 @@ Score & 120 & 72.1 & 15.3 & 28 & 99 & $-$0.31 \\
 
 ### 5. Visualize (Optional)
 
-Generate exploratory plots saved as PDF for LaTeX inclusion:
+Generate exploratory plots under `output/analysis/`. For publication plots,
+export reproducible SVG from the plotting code for the **@illustrator** agent
+and **svg-renderer** skill to refine and convert; never redraw empirical values:
 
 - **Distribution plots** — histograms or kernel density estimates for continuous variables
 - **Box plots** — group comparisons
@@ -162,11 +177,13 @@ plt.rcParams.update({
 })
 ```
 
-Save to `figures/` for direct LaTeX inclusion.
+Keep diagnostics separate from publication figures. Save approved publication
+SVGs to `figures/` and include their converted PDFs in LaTeX.
 
 ### 6. Produce a Codebook
 
-Generate `data/codebook.md` documenting:
+Generate `data/codebook.md` from the actual data and approved decisions. This
+example illustrates the format only:
 
 ```markdown
 # Data Codebook
@@ -175,10 +192,10 @@ Generate `data/codebook.md` documenting:
 - **File**: experiment.csv
 - **Collected**: 2024-01-15
 - **N (raw)**: 150
-- **N (after cleaning)**: 142
+- **N (after cleaning)**: 147
 
 ## Cleaning Log
-1. Removed 3 duplicate rows
+1. Removed 3 confirmed duplicate records under the approved identifier rule
 2. Imputed 5 missing Age values with median (34)
 3. Recoded Gender: "M"/"F"/"Male"/"Female" → "male"/"female"
 
@@ -194,13 +211,17 @@ Generate `data/codebook.md` documenting:
 
 ## Execution
 
-All Python code runs inside the Docker container:
+Save the script in the paper's `analysis/` directory. Run from the repository root
+using [the processing helper](scripts/run-processing.sh):
 
 ```bash
-.github/skills/data-processor/scripts/run-processing.sh [paper-dir] [script.py]
+.github/skills/data-processor/scripts/run-processing.sh papers/<name> analysis/process.py --args --seed 42
 ```
 
-This ensures reproducibility and consistent package versions.
+The script path is relative to the paper directory. Arguments after `--args` are
+forwarded unchanged. Record input hashes, script version, cleaning decisions,
+random seeds, package versions, and the Docker image ID; an image tag alone does
+not guarantee reproducibility.
 
 ## Output Structure
 
@@ -214,10 +235,9 @@ data/
 │   └── experiment_clean.csv
 ├── codebook.md              # Variable descriptions and cleaning log
 output/
-├── analysis/                # Descriptive stats JSON
-│   └── descriptive.json
-figures/
-└── distributions.pdf        # Exploratory plots (if generated)
+└── analysis/                # Descriptive stats JSON and diagnostic plots
+    ├── descriptive.json
+    └── distributions.png    # Exploratory plots (if generated)
 ```
 
 ## Important Rules
@@ -226,6 +246,6 @@ figures/
 - **Document every decision** — cleaning choices go in the codebook, not just in code comments
 - **Be transparent about data loss** — report how many rows/values were removed or imputed
 - **Do not fabricate data** — only process actual data provided by the user
-- **Ask before aggressive cleaning** — if outlier removal or imputation would affect >10% of data, ask the user
+- **Confirm consequential cleaning** — follow the approved analysis plan or ask before deleting observations, imputing values, or changing the unit of analysis
 - **Use the container** — all Python execution happens in Docker for reproducibility
 - **Save scripts** — processing scripts go in `analysis/` directory so steps are reproducible

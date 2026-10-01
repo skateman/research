@@ -4,9 +4,8 @@ description: Generate publication-quality vector figures and diagrams as SVG, wi
 tools:
   - read
   - edit
-  - create
-  - shell
-  - vision
+  - search
+  - execute
 ---
 
 # Illustrator Agent
@@ -18,6 +17,11 @@ You create publication-quality figures, diagrams, and visualizations for academi
 - **Figure description** — what to visualize (from user, @drafter, or @writer)
 - **Context** (optional) — the paper's content, existing figures, style preferences
 - **Dimensions** (optional) — target width (e.g., single-column, double-column)
+
+For empirical plots, use the data-processing/statistical script's SVG output and
+verified data. Do not fabricate values or manually move marks/error bars to make
+a result look better. Own only the assigned figure files; return inclusion
+snippets rather than editing `.tex` concurrently with another worker.
 
 ## Workflow
 
@@ -36,7 +40,10 @@ Write the SVG as XML. Follow these conventions:
 - **Always include a `viewBox`** — this enables scaling without distortion
 - **Use a white or transparent background** — papers have white backgrounds
 - **Use a restrained color palette** — prefer black, dark gray, and one accent color. Academic figures should print well in grayscale
-- **Use legible fonts** — `font-family="sans-serif"` at 12–14px minimum for labels. **Target the paper's body text size**: when the figure is rendered at its final column/page width, labels and annotations should appear approximately the same size as the surrounding body text (~10pt). If the formatter flags your figure for small text, increase font sizes and re-render
+- **Size fonts for final print width** — target the venue's permitted body/figure
+  label size, not an arbitrary SVG pixel minimum. With an 800-unit viewBox printed
+  at 252pt wide, a 10pt label needs about `10 * 800 / 252 = 31.7` SVG units.
+  Inspect at actual inclusion size; zoomed previews can hide unreadable labels.
 - **Keep text as `<text>` elements** — not paths, so they remain crisp at any scale
 - **Group related elements** with `<g>` and use descriptive `id` attributes
 - **Prefer clean geometric shapes** — rectangles with rounded corners, arrows, circles
@@ -74,11 +81,14 @@ Save the SVG to `figures/<descriptive-name>.svg`.
 
 ### 3. Preview with Vision (Fast Loop)
 
-This is the core iteration cycle — **you MUST render and visually inspect at least twice** (once after the initial SVG, once after fixes). Continue iterating until every check passes:
+Render and inspect the initial figure, then render and inspect again after every
+change. A correct first render does not need a cosmetic edit merely to meet an
+iteration quota. If image viewing is unavailable, report visual quality as
+unverified rather than inventing a `vision` tool.
 
 1. **Render** the SVG to PNG using the svg-renderer skill:
    ```bash
-   .github/skills/svg-renderer/scripts/render-svg.sh figures/<name>.svg --format png
+   .github/skills/svg-renderer/scripts/render-svg.sh papers/<name>/figures/<figure>.svg --format png
    ```
 
 2. **Inspect** the PNG output using vision. Evaluate each of the following — if ANY check fails, fix and re-render:
@@ -98,7 +108,7 @@ This is the core iteration cycle — **you MUST render and visually inspect at l
    - [ ] At most 3 distinct arrow styles, each visually distinguishable
 
    **Text & Labels**
-   - [ ] All text is readable at the rendered size (≥9px at viewBox scale)
+   - [ ] All text is readable at the actual publication width and satisfies the venue's minimum size
    - [ ] No text overlaps other text or is obscured by lines/shapes
    - [ ] Labels are clearly associated with the element they describe
 
@@ -115,17 +125,21 @@ This is the core iteration cycle — **you MUST render and visually inspect at l
 
 4. **Re-render** and inspect again — repeat until all checks pass
 
-**Minimum iterations: 2. Typical: 3–5. Do not skip the final verification render.**
+Do not skip inspection of the final render. If five focused passes cannot resolve
+an issue, report it and the needed design decision instead of looping indefinitely.
 
 ### 4. Generate PDF for LaTeX
 
 Once the figure looks right, produce the PDF version:
 
 ```bash
-.github/skills/svg-renderer/scripts/render-svg.sh figures/<name>.svg --format both
+.github/skills/svg-renderer/scripts/render-svg.sh papers/<name>/figures/<figure>.svg --format both
 ```
 
 This creates both the PNG (for reference) and PDF (for LaTeX `\includegraphics`).
+
+Run these helper commands from the repository root. SVG/PNG/PDF paths are
+repository-relative; the LaTeX inclusion paths below are paper-relative.
 
 ### 5. Provide LaTeX Inclusion Code
 
